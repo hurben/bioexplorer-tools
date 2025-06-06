@@ -33,6 +33,7 @@ bioexplorer-tools/
 │   ├── test_data/                   # Example data for testing
 │   │   └── linear_regression.cVSneg.proteomics.tsv
 │   └── volcano_plot_with_sliders.py# Main Streamlit app script
+|   |---requirements.txt
 ├── filtered_volcano_features.csv    # Example output from the volcano plot app
 ├── linear_regression.cVSneg.proteomics.tsv # Example input copied to top-level
 ```
