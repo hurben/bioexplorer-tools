@@ -26,16 +26,18 @@ streamlit run volcano_plot_with_sliders.py
 
 ## 🔧 Repository Structure
 
-volcano_plot_app
+- volcano_plot_app
+
 ```bash
 bioexplorer-tools/
-├── volcano_plot_app/                # Folder for the volcano plot Streamlit app
-│   ├── test_data/                   # Example data for testing
+├── volcano_plot_app/                     # Streamlit app: interactive volcano plot viewer
+│   ├── test_data/                        # Example input data
 │   │   └── linear_regression.cVSneg.proteomics.tsv
-│   └── volcano_plot_with_sliders.py# Main Streamlit app script
-|   |---requirements.txt
-├── filtered_volcano_features.csv    # Example output from the volcano plot app
-├── linear_regression.cVSneg.proteomics.tsv # Example input copied to top-level
+│   ├── volcano_plot_with_sliders.py     # Main Streamlit app script
+│   └── requirements.txt                 # Dependencies for this app (pip-based)
+├── filtered_volcano_features.csv         # Example output file (downloaded via app)
+├── linear_regression.cVSneg.proteomics.tsv # Example input (copied to root for convenience)
+└── README.md                             # Project documentation
 ```
 
 temp_app
