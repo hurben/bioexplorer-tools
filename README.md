@@ -40,7 +40,30 @@ bioexplorer-tools/
 └── README.md                             # Project documentation
 ```
 
-temp_app
+### 🧬 2. `venn_diagram_app/` – Venn Diagram Builder
+
+An interactive Venn diagram app that allows you to define up to 3 feature sets using custom filters across one or more uploaded TSV files.
+
+**Features:**
+- Upload 1 or more tab-separated (TSV) files
+- Define up to 3 feature lists using user-defined filters (e.g., `adj_pval < 0.05 and cohen_d > 0.5`)
+- Use any column as the feature identifier
+- Visualize overlaps using 2-set or 3-set Venn diagrams
+- View and export a full set combination table showing feature membership across lists
+- Load example datasets (`testdata1` / `testdata2`) or reset all uploads with one click
+
+**Run the app:**
+
 ```bash
-place holder
+cd venn_diagram_app
+streamlit run venn_diagram_app.py
+```
+
+```bash
+bioexplorer-tools/
+├── venn_diagram_app/                       # Venn diagram builder
+│   ├── test_data/                         # Example inputs
+│   │   ├── linear_regression.cVSneg.proteomics.tsv
+│   │   └── linear_regression.cVSpos.proteomics.tsv
+└── └── venn_diagram_app.py                 # Main Streamlit app script
 ```
