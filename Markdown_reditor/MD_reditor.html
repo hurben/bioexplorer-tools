@@ -1,0 +1,1339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Markdown Studio</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+  /* ─── CSS Custom Properties ─────────────────────────────── */
+  :root {
+    --bg:         #f5f2ed;
+    --bg-panel:   #edeae4;
+    --bg-sidebar: #e8e4dc;
+    --bg-editor:  #faf8f5;
+    --border:     #d4cfc6;
+    --text:       #2c2925;
+    --text-muted: #8a8278;
+    --text-ui:    #5a5650;
+    --accent:     #b05a2f;
+    --accent-2:   #4a7c59;
+    --toolbar-bg: #e0dbd2;
+    --toolbar-border: #c8c2b8;
+    --scrollbar:  #c8c2b8;
+
+    --font-ui:    'Helvetica Neue', Helvetica, Arial, sans-serif;
+    --font-read:  Georgia, 'Times New Roman', serif;
+    --font-mono:  'JetBrains Mono', 'Fira Code', 'Cascadia Code', 'Menlo', monospace;
+
+    --hl-yellow:  rgba(255, 220, 50, 0.45);
+    --hl-green:   rgba(80, 180, 100, 0.35);
+    --hl-pink:    rgba(230, 80, 130, 0.30);
+    --hl-blue:    rgba(60, 140, 220, 0.30);
+
+    --radius:     4px;
+    --transition: 180ms ease;
+  }
+
+  body[data-theme="dark"] {
+    --bg:         #1a1917;
+    --bg-panel:   #222120;
+    --bg-sidebar: #1e1d1b;
+    --bg-editor:  #1c1b19;
+    --border:     #3a3835;
+    --text:       #e8e4dd;
+    --text-muted: #7a7570;
+    --text-ui:    #a09890;
+    --accent:     #d4845a;
+    --accent-2:   #6aaa7a;
+    --toolbar-bg: #252320;
+    --toolbar-border: #333230;
+    --scrollbar:  #3a3835;
+  }
+
+  body[data-theme="sepia"] {
+    --bg:         #f8f2e6;
+    --bg-panel:   #f2ead8;
+    --bg-sidebar: #ede4cc;
+    --bg-editor:  #faf6ec;
+    --border:     #d8cdb0;
+    --text:       #3a2e1a;
+    --text-muted: #8a7a5a;
+    --text-ui:    #6a5a3a;
+    --accent:     #8b4513;
+    --accent-2:   #3a6b40;
+    --toolbar-bg: #e8dfc8;
+    --toolbar-border: #c8bd9e;
+    --scrollbar:  #c8bd9e;
+  }
+
+  /* ─── Reset & Base ───────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    overflow: hidden;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-size: 14px;
+    transition: background var(--transition), color var(--transition);
+  }
+
+  /* ─── Layout Shell ───────────────────────────────────────── */
+  #app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ─── Toolbar ────────────────────────────────────────────── */
+  #toolbar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 10px;
+    height: 40px;
+    min-height: 40px;
+    background: var(--toolbar-bg);
+    border-bottom: 1px solid var(--toolbar-border);
+    flex-shrink: 0;
+    user-select: none;
+    overflow: hidden;
+  }
+
+  #toolbar .tb-group {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  #toolbar .tb-sep {
+    width: 1px;
+    height: 18px;
+    background: var(--toolbar-border);
+    margin: 0 4px;
+    flex-shrink: 0;
+  }
+
+  #toolbar .tb-spacer { flex: 1; }
+
+  .tb-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px;
+    border: none;
+    background: transparent;
+    color: var(--text-ui);
+    font-family: var(--font-ui);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: var(--radius);
+    white-space: nowrap;
+    transition: background var(--transition), color var(--transition);
+    letter-spacing: 0.02em;
+  }
+  .tb-btn:hover { background: var(--border); color: var(--text); }
+  .tb-btn.active { background: var(--accent); color: #fff; }
+  .tb-btn svg { flex-shrink: 0; }
+
+  #file-title {
+    font-family: var(--font-ui);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    padding: 0 6px;
+    letter-spacing: 0.01em;
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #cursor-pos {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    padding: 0 6px;
+  }
+
+  /* ─── Main Area ──────────────────────────────────────────── */
+  #main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* ─── TOC Sidebar ────────────────────────────────────────── */
+  #toc-sidebar {
+    width: 220px;
+    min-width: 220px;
+    max-width: 220px;
+    background: var(--bg-sidebar);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: width var(--transition), min-width var(--transition), opacity var(--transition);
+    flex-shrink: 0;
+  }
+  #toc-sidebar.hidden {
+    width: 0;
+    min-width: 0;
+    opacity: 0;
+    border-right: none;
+    overflow: hidden;
+  }
+
+  #toc-header {
+    padding: 10px 14px 8px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  #toc-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px 0;
+  }
+
+  .toc-item {
+    display: block;
+    padding: 4px 14px;
+    font-size: 12.5px;
+    color: var(--text-ui);
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    border-radius: 0;
+    transition: background var(--transition), color var(--transition);
+    border: none;
+    background: none;
+    text-align: left;
+    width: 100%;
+    font-family: var(--font-ui);
+  }
+  .toc-item:hover { background: var(--border); color: var(--text); }
+  .toc-item.h1 { font-weight: 600; padding-left: 14px; }
+  .toc-item.h2 { padding-left: 22px; font-size: 12px; }
+  .toc-item.h3 { padding-left: 32px; font-size: 11.5px; color: var(--text-muted); }
+  .toc-item.h4, .toc-item.h5, .toc-item.h6 { padding-left: 40px; font-size: 11px; color: var(--text-muted); }
+
+  /* ─── Editor + Preview Split ─────────────────────────────── */
+  #split-area {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* ─── Editor Pane ────────────────────────────────────────── */
+  #editor-pane {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-editor);
+    border-right: 1px solid var(--border);
+    overflow: hidden;
+    min-width: 0;
+    flex-shrink: 0;
+    transition: width var(--transition), opacity var(--transition);
+  }
+  #editor-pane.hidden {
+    width: 0 !important;
+    opacity: 0;
+    border-right: none;
+    overflow: hidden;
+  }
+
+  #editor-header {
+    padding: 8px 12px 6px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  #editor {
+    flex: 1;
+    resize: none;
+    border: none;
+    outline: none;
+    background: var(--bg-editor);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.7;
+    padding: 16px;
+    overflow-y: auto;
+    tab-size: 2;
+    white-space: pre;
+    overflow-x: auto;
+    transition: background var(--transition), color var(--transition);
+  }
+
+  /* ─── Resizer ────────────────────────────────────────────── */
+  #resizer {
+    width: 5px;
+    cursor: col-resize;
+    background: var(--border);
+    flex-shrink: 0;
+    transition: background 120ms;
+    position: relative;
+    z-index: 10;
+  }
+  #resizer:hover, #resizer.dragging { background: var(--accent); }
+
+  /* ─── Preview Pane ───────────────────────────────────────── */
+  #preview-pane {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+    background: var(--bg);
+  }
+
+  #preview-scroll {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 48px max(40px, calc(50% - 380px));
+    scroll-behavior: auto;
+  }
+
+  /* ─── Annotations Panel ──────────────────────────────────── */
+  #annot-panel {
+    width: 240px;
+    min-width: 240px;
+    background: var(--bg-panel);
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: width var(--transition), min-width var(--transition), opacity var(--transition);
+    flex-shrink: 0;
+  }
+  #annot-panel.hidden {
+    width: 0;
+    min-width: 0;
+    opacity: 0;
+    border-left: none;
+    overflow: hidden;
+  }
+
+  #annot-header {
+    padding: 10px 14px 8px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  #annot-clear {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: none;
+    color: var(--accent);
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-family: var(--font-ui);
+    padding: 0;
+  }
+  #annot-clear:hover { text-decoration: underline; }
+
+  #annot-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+  }
+
+  .annot-item {
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background var(--transition);
+    position: relative;
+  }
+  .annot-item:hover { background: var(--bg-sidebar); }
+  .annot-item:last-child { border-bottom: none; }
+
+  .annot-text {
+    font-family: var(--font-read);
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text);
+    margin-bottom: 5px;
+    word-break: break-word;
+  }
+
+  .annot-swatch {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 5px;
+    vertical-align: middle;
+  }
+
+  .annot-delete {
+    position: absolute;
+    top: 8px; right: 10px;
+    font-size: 14px;
+    color: var(--text-muted);
+    cursor: pointer;
+    background: none;
+    border: none;
+    line-height: 1;
+    opacity: 0;
+    transition: opacity var(--transition);
+    font-family: var(--font-ui);
+  }
+  .annot-item:hover .annot-delete { opacity: 1; }
+  .annot-delete:hover { color: var(--accent); }
+
+  /* ─── Highlight Marks in Preview ─────────────────────────── */
+  mark.hl {
+    border-radius: 2px;
+    padding: 0 1px;
+    cursor: pointer;
+  }
+  mark.hl[data-color="yellow"] { background: var(--hl-yellow); }
+  mark.hl[data-color="green"]  { background: var(--hl-green); }
+  mark.hl[data-color="pink"]   { background: var(--hl-pink); }
+  mark.hl[data-color="blue"]   { background: var(--hl-blue); }
+
+  /* ─── Markdown Typography ────────────────────────────────── */
+  #preview-scroll {
+    font-family: var(--font-read);
+    color: var(--text);
+    line-height: 1.8;
+    font-size: 17px;
+  }
+
+  #preview-scroll h1, #preview-scroll h2,
+  #preview-scroll h3, #preview-scroll h4,
+  #preview-scroll h5, #preview-scroll h6 {
+    font-family: var(--font-read);
+    color: var(--text);
+    line-height: 1.3;
+    margin: 1.6em 0 0.5em;
+    font-weight: 700;
+  }
+  #preview-scroll h1 { font-size: 2em; border-bottom: 2px solid var(--border); padding-bottom: 0.3em; }
+  #preview-scroll h2 { font-size: 1.5em; border-bottom: 1px solid var(--border); padding-bottom: 0.2em; }
+  #preview-scroll h3 { font-size: 1.2em; }
+  #preview-scroll h4 { font-size: 1em; font-style: italic; }
+  #preview-scroll h5, #preview-scroll h6 { font-size: 0.9em; color: var(--text-muted); }
+
+  #preview-scroll p { margin: 0.9em 0; }
+
+  #preview-scroll a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+  #preview-scroll a:hover { color: var(--accent-2); }
+
+  #preview-scroll strong { font-weight: 700; }
+  #preview-scroll em { font-style: italic; }
+
+  #preview-scroll code {
+    font-family: var(--font-mono);
+    font-size: 0.82em;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1px 5px;
+  }
+
+  #preview-scroll pre {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 16px 20px;
+    overflow-x: auto;
+    margin: 1.2em 0;
+    font-size: 0.8em;
+    line-height: 1.6;
+  }
+  #preview-scroll pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 1em;
+  }
+
+  #preview-scroll blockquote {
+    border-left: 3px solid var(--accent);
+    margin: 1.2em 0;
+    padding: 4px 0 4px 20px;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  #preview-scroll hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2em 0;
+  }
+
+  #preview-scroll ul, #preview-scroll ol {
+    padding-left: 1.8em;
+    margin: 0.8em 0;
+  }
+  #preview-scroll li { margin: 0.3em 0; }
+
+  #preview-scroll table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1.2em 0;
+    font-size: 0.92em;
+  }
+  #preview-scroll th, #preview-scroll td {
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    text-align: left;
+  }
+  #preview-scroll th {
+    background: var(--bg-panel);
+    font-weight: 700;
+    font-family: var(--font-ui);
+    font-size: 0.85em;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  #preview-scroll tr:nth-child(even) td { background: var(--bg-panel); }
+
+  #preview-scroll img { max-width: 100%; border-radius: 4px; }
+
+  /* ─── Drop Overlay ───────────────────────────────────────── */
+  #drop-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+    pointer-events: none;
+  }
+  #drop-overlay.show {
+    display: flex;
+    pointer-events: all;
+  }
+  #drop-box {
+    background: var(--bg-panel);
+    border: 2px dashed var(--accent);
+    border-radius: 12px;
+    padding: 48px 72px;
+    text-align: center;
+    color: var(--text);
+  }
+  #drop-box h2 { font-size: 1.4em; margin-bottom: 8px; font-family: var(--font-read); }
+  #drop-box p { color: var(--text-muted); font-size: 0.9em; }
+
+  /* ─── Empty State ────────────────────────────────────────── */
+  #empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 12px;
+    color: var(--text-muted);
+    text-align: center;
+    padding: 40px;
+    font-family: var(--font-ui);
+  }
+  #empty-state .logo {
+    font-size: 3em;
+    margin-bottom: 4px;
+    opacity: 0.35;
+    font-family: var(--font-read);
+    font-style: italic;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+  #empty-state h2 {
+    font-size: 1.1em;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0;
+  }
+  #empty-state p { font-size: 0.85em; max-width: 300px; line-height: 1.6; }
+  #empty-state .hint-btns {
+    display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 8px;
+  }
+  .hint-btn {
+    padding: 7px 16px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-panel);
+    color: var(--text-ui);
+    font-size: 12px;
+    cursor: pointer;
+    font-family: var(--font-ui);
+    transition: background var(--transition), color var(--transition);
+  }
+  .hint-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+  /* ─── Scrollbars ─────────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+  /* ─── Misc ───────────────────────────────────────────────── */
+  #toc-list:empty::after {
+    content: 'No headings found';
+    display: block;
+    padding: 12px 14px;
+    font-size: 12px;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+
+  #annot-list:empty::after {
+    content: 'No highlights yet.\ASelect text in preview.';
+    white-space: pre;
+    display: block;
+    padding: 14px;
+    font-size: 12px;
+    color: var(--text-muted);
+    font-style: italic;
+    line-height: 1.6;
+  }
+
+  input[type="file"] { display: none; }
+
+  /* ─── Highlighter pen toolbar ────────────────────────────── */
+  .hl-pen-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    font-family: var(--font-ui);
+    letter-spacing: 0.03em;
+    user-select: none;
+    padding: 0 4px 0 2px;
+  }
+
+  .hl-pen-btn {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: transform 120ms, border-color 120ms, box-shadow 120ms;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .hl-pen-btn[data-color="yellow"] { background: #ffd932; }
+  .hl-pen-btn[data-color="green"]  { background: #50b464; }
+  .hl-pen-btn[data-color="pink"]   { background: #e65082; }
+  .hl-pen-btn[data-color="blue"]   { background: #3c8cdc; }
+  .hl-pen-btn:hover { transform: scale(1.15); border-color: var(--text-muted); }
+  .hl-pen-btn.active {
+    border-color: var(--text);
+    box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--text);
+    transform: scale(1.1);
+  }
+
+  /* Active pen mode: custom cursor on preview */
+  #preview-scroll.pen-mode { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Ctext y='20' font-size='20'%3E🖊%3C/text%3E%3C/svg%3E") 0 20, text; }
+
+
+  /* small loading flash prevention */
+  #preview-scroll:not(.ready) { visibility: hidden; }
+</style>
+</head>
+<body data-theme="light">
+
+<div id="app">
+
+  <!-- ─── Toolbar ─────────────────────────────────────── -->
+  <div id="toolbar">
+    <div class="tb-group">
+      <button class="tb-btn" id="btn-new" title="New file">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M9 2H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V7L9 2z"/>
+          <path d="M9 2v5h5"/>
+        </svg>
+        New
+      </button>
+      <button class="tb-btn" id="btn-open" title="Open file">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M2 5a1 1 0 0 1 1-1h3l1.5 2H13a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5z"/>
+        </svg>
+        Open
+      </button>
+      <button class="tb-btn" id="btn-save" title="Save file">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M13 13H3a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h7l3 3v7a1 1 0 0 1-1 1z"/>
+          <rect x="5" y="9" width="6" height="4"/>
+          <path d="M5 3h5v3H5z"/>
+        </svg>
+        Save
+      </button>
+    </div>
+
+    <div class="tb-sep"></div>
+
+    <div class="tb-group">
+      <button class="tb-btn" id="btn-toc" title="Toggle table of contents">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+          <line x1="2" y1="4" x2="7" y2="4"/><line x1="2" y1="8" x2="14" y2="8"/>
+          <line x1="2" y1="12" x2="14" y2="12"/><line x1="9" y1="4" x2="14" y2="4"/>
+        </svg>
+        TOC
+      </button>
+      <button class="tb-btn" id="btn-editor" title="Toggle editor">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M3 12l9-9M9 3l4 0 0 4M5 13H3v-2"/>
+        </svg>
+        Editor
+      </button>
+      <button class="tb-btn" id="btn-annot" title="Toggle annotations panel">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M10 2H3a1 1 0 0 0-1 1v10l3-2h5a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z"/>
+          <line x1="5" y1="6" x2="8" y2="6"/><line x1="5" y1="9" x2="8" y2="9"/>
+        </svg>
+        Highlights
+      </button>
+    </div>
+
+    <div class="tb-sep"></div>
+
+    <!-- Highlighter pen buttons -->
+    <div class="tb-group" id="hl-pen-group">
+      <span class="hl-pen-label">Pen:</span>
+      <button class="hl-pen-btn" data-color="yellow" title="Yellow highlighter (click to activate, drag over text)"></button>
+      <button class="hl-pen-btn" data-color="green"  title="Green highlighter"></button>
+      <button class="hl-pen-btn" data-color="pink"   title="Pink highlighter"></button>
+      <button class="hl-pen-btn" data-color="blue"   title="Blue highlighter"></button>
+    </div>
+
+    <div class="tb-sep"></div>
+
+    <span id="file-title">No file open</span>
+    <span id="cursor-pos"></span>
+
+    <div class="tb-spacer"></div>
+
+    <div class="tb-group">
+      <button class="tb-btn" id="btn-theme" title="Cycle themes (Light → Sepia → Dark)">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+          <circle cx="8" cy="8" r="3.5"/>
+          <line x1="8" y1="1" x2="8" y2="3"/><line x1="8" y1="13" x2="8" y2="15"/>
+          <line x1="1" y1="8" x2="3" y2="8"/><line x1="13" y1="8" x2="15" y2="8"/>
+          <line x1="2.9" y1="2.9" x2="4.4" y2="4.4"/><line x1="11.6" y1="11.6" x2="13.1" y2="13.1"/>
+          <line x1="2.9" y1="13.1" x2="4.4" y2="11.6"/><line x1="11.6" y1="4.4" x2="13.1" y2="2.9"/>
+        </svg>
+        Theme
+      </button>
+    </div>
+
+    <input type="file" id="file-input" accept=".md,.markdown,.txt">
+  </div>
+
+  <!-- ─── Main ──────────────────────────────────────────── -->
+  <div id="main">
+
+    <!-- TOC Sidebar -->
+    <div id="toc-sidebar" class="hidden">
+      <div id="toc-header">Contents</div>
+      <div id="toc-list"></div>
+    </div>
+
+    <!-- Split Area -->
+    <div id="split-area">
+
+      <!-- Editor Pane -->
+      <div id="editor-pane" class="hidden" style="width: 420px;">
+        <div id="editor-header">Markdown Source</div>
+        <textarea id="editor" spellcheck="false" placeholder="# Start writing...&#10;&#10;Type your Markdown here, or open a .md file."></textarea>
+      </div>
+
+      <!-- Resizer -->
+      <div id="resizer"></div>
+
+      <!-- Preview Pane -->
+      <div id="preview-pane">
+        <div id="preview-scroll">
+          <!-- Empty state shown when nothing loaded -->
+          <div id="empty-state">
+            <div class="logo">Md</div>
+            <h2>Markdown Studio</h2>
+            <p>Open a .md file or start writing. Drag and drop a file anywhere to begin.</p>
+            <div class="hint-btns">
+              <button class="hint-btn" onclick="document.getElementById('btn-open').click()">Open file</button>
+              <button class="hint-btn" onclick="newFile()">New file</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Annotations Panel -->
+    <div id="annot-panel" class="hidden">
+      <div id="annot-header">
+        Highlights
+        <button id="annot-clear">Clear all</button>
+      </div>
+      <div id="annot-list"></div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- Drop overlay -->
+<div id="drop-overlay">
+  <div id="drop-box">
+    <h2>Drop to open</h2>
+    <p>Drop your .md or .markdown file here</p>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   Markdown Studio — single-file vanilla JS app
+═══════════════════════════════════════════════════════════════ */
+
+// ─── State ─────────────────────────────────────────────────────
+const state = {
+  fileName:    null,
+  rawMd:       '',
+  theme:       localStorage.getItem('ms-theme') || 'light',
+  editorOpen:  false,
+  tocOpen:     false,
+  annotOpen:   false,
+  highlights:  JSON.parse(localStorage.getItem('ms-highlights') || '[]'),
+  editorWidth: parseInt(localStorage.getItem('ms-editor-width') || '420', 10),
+  hasContent:  false,
+};
+
+// ─── DOM refs ──────────────────────────────────────────────────
+const $  = id => document.getElementById(id);
+const editor         = $('editor');
+const previewScroll  = $('preview-scroll');
+const tocList        = $('toc-list');
+const annotList      = $('annot-list');
+const fileTitle      = $('file-title');
+const cursorPos      = $('cursor-pos');
+const dropOverlay    = $('drop-overlay');
+const editorPane     = $('editor-pane');
+const tocSidebar     = $('toc-sidebar');
+const annotPanel     = $('annot-panel');
+const resizer        = $('resizer');
+const fileInput      = $('file-input');
+
+// ─── Marked.js config ──────────────────────────────────────────
+marked.setOptions({ gfm: true, breaks: false });
+
+// ─── Theme ─────────────────────────────────────────────────────
+const themes = ['light', 'sepia', 'dark'];
+
+function applyTheme(t) {
+  state.theme = t;
+  document.body.dataset.theme = t;
+  localStorage.setItem('ms-theme', t);
+}
+
+$('btn-theme').addEventListener('click', () => {
+  const idx = themes.indexOf(state.theme);
+  applyTheme(themes[(idx + 1) % themes.length]);
+});
+
+applyTheme(state.theme);
+
+// ─── Render ────────────────────────────────────────────────────
+let renderTimer = null;
+
+function render(preserveScroll = true) {
+  const scrollTop = previewScroll.scrollTop;
+
+  if (!state.hasContent) {
+    previewScroll.innerHTML = `<div id="empty-state">
+      <div class="logo">Md</div>
+      <h2>Markdown Studio</h2>
+      <p>Open a .md file or start writing. Drag and drop a file anywhere to begin.</p>
+      <div class="hint-btns">
+        <button class="hint-btn" onclick="document.getElementById('btn-open').click()">Open file</button>
+        <button class="hint-btn" onclick="newFile()">New file</button>
+      </div>
+    </div>`;
+    tocList.innerHTML = '';
+    return;
+  }
+
+  // Parse markdown
+  const html = marked.parse(state.rawMd || '');
+  previewScroll.innerHTML = html;
+  previewScroll.classList.add('ready');
+
+  // Re-apply highlights
+  applyHighlightsToDOM();
+
+  // Build TOC
+  buildTOC();
+
+  if (preserveScroll) previewScroll.scrollTop = scrollTop;
+}
+
+function scheduleRender() {
+  clearTimeout(renderTimer);
+  renderTimer = setTimeout(() => render(true), 80);
+}
+
+// ─── Editor ────────────────────────────────────────────────────
+editor.addEventListener('input', () => {
+  state.rawMd = editor.value;
+  scheduleRender();
+});
+
+// Tab key support
+editor.addEventListener('keydown', e => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const start = editor.selectionStart;
+    const end   = editor.selectionEnd;
+    editor.value = editor.value.substring(0, start) + '  ' + editor.value.substring(end);
+    editor.selectionStart = editor.selectionEnd = start + 2;
+    state.rawMd = editor.value;
+    scheduleRender();
+  }
+});
+
+// Cursor position display
+editor.addEventListener('keyup',   updateCursor);
+editor.addEventListener('click',   updateCursor);
+editor.addEventListener('selectionchange', updateCursor);
+
+function updateCursor() {
+  const val = editor.value;
+  const pos = editor.selectionStart;
+  const lines = val.substring(0, pos).split('\n');
+  const line = lines.length;
+  const col  = lines[lines.length - 1].length + 1;
+  cursorPos.textContent = state.editorOpen ? `Ln ${line}, Col ${col}` : '';
+}
+
+// ─── File I/O ──────────────────────────────────────────────────
+function loadMarkdown(text, name) {
+  state.rawMd    = text;
+  state.fileName = name || 'untitled.md';
+  state.hasContent = true;
+  editor.value   = text;
+  fileTitle.textContent = state.fileName;
+  render(false);
+  previewScroll.scrollTop = 0;
+}
+
+fileInput.addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  readFile(file);
+  fileInput.value = '';
+});
+
+$('btn-open').addEventListener('click', () => fileInput.click());
+$('btn-new').addEventListener('click', newFile);
+
+$('btn-save').addEventListener('click', () => {
+  const blob = new Blob([state.rawMd], { type: 'text/markdown' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = state.fileName || 'document.md';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+function readFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => loadMarkdown(e.target.result, file.name);
+  reader.readAsText(file);
+}
+
+function newFile() {
+  const name = prompt('File name (without .md):', 'untitled');
+  if (name === null) return;
+  const safeName = name.trim() || 'untitled';
+  loadMarkdown(`# ${safeName}\n\n`, safeName + '.md');
+  // Open editor automatically for new files
+  if (!state.editorOpen) toggleEditor();
+}
+
+window.newFile = newFile; // expose for empty state buttons
+
+// ─── Drag & Drop ───────────────────────────────────────────────
+document.addEventListener('dragover',  e => { e.preventDefault(); dropOverlay.classList.add('show'); });
+document.addEventListener('dragleave', e => { if (!e.relatedTarget) dropOverlay.classList.remove('show'); });
+document.addEventListener('drop', e => {
+  e.preventDefault();
+  dropOverlay.classList.remove('show');
+  const file = e.dataTransfer.files[0];
+  if (file && /\.(md|markdown|txt)$/i.test(file.name)) {
+    readFile(file);
+  }
+});
+
+// ─── TOC ───────────────────────────────────────────────────────
+function buildTOC() {
+  const headings = previewScroll.querySelectorAll('h1,h2,h3,h4,h5,h6');
+  tocList.innerHTML = '';
+
+  // Assign IDs to headings
+  let seenIds = {};
+  headings.forEach((h, i) => {
+    const slug = h.textContent.toLowerCase()
+      .replace(/\s+/g, '-').replace(/[^\w-]/g, '');
+    const id = seenIds[slug] ? `${slug}-${i}` : slug;
+    seenIds[slug] = true;
+    h.id = id;
+
+    const btn = document.createElement('button');
+    btn.className = `toc-item ${h.tagName.toLowerCase()}`;
+    btn.textContent = h.textContent;
+    btn.title = h.textContent;
+    btn.addEventListener('click', () => {
+      h.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    tocList.appendChild(btn);
+  });
+}
+
+// ─── Panel toggles ─────────────────────────────────────────────
+function toggleTOC() {
+  state.tocOpen = !state.tocOpen;
+  tocSidebar.classList.toggle('hidden', !state.tocOpen);
+  $('btn-toc').classList.toggle('active', state.tocOpen);
+}
+
+function toggleEditor() {
+  state.editorOpen = !state.editorOpen;
+  editorPane.classList.toggle('hidden', !state.editorOpen);
+  resizer.style.display = state.editorOpen ? '' : 'none';
+  $('btn-editor').classList.toggle('active', state.editorOpen);
+  if (state.editorOpen) {
+    editorPane.style.width = state.editorWidth + 'px';
+    updateCursor();
+  } else {
+    cursorPos.textContent = '';
+  }
+}
+
+function toggleAnnot() {
+  state.annotOpen = !state.annotOpen;
+  annotPanel.classList.toggle('hidden', !state.annotOpen);
+  $('btn-annot').classList.toggle('active', state.annotOpen);
+}
+
+$('btn-toc').addEventListener('click', toggleTOC);
+$('btn-editor').addEventListener('click', toggleEditor);
+$('btn-annot').addEventListener('click', toggleAnnot);
+
+// Initial resizer display
+resizer.style.display = 'none';
+
+// ─── Resizer drag ──────────────────────────────────────────────
+let isDragging = false, dragStartX = 0, dragStartW = 0;
+
+resizer.addEventListener('mousedown', e => {
+  if (!state.editorOpen) return;
+  isDragging  = true;
+  dragStartX  = e.clientX;
+  dragStartW  = editorPane.offsetWidth;
+  resizer.classList.add('dragging');
+  document.body.style.userSelect = 'none';
+  document.body.style.cursor = 'col-resize';
+});
+
+document.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  const delta = e.clientX - dragStartX;
+  const newW  = Math.max(200, Math.min(dragStartW + delta, window.innerWidth * 0.7));
+  editorPane.style.width = newW + 'px';
+  state.editorWidth = newW;
+});
+
+document.addEventListener('mouseup', () => {
+  if (!isDragging) return;
+  isDragging = false;
+  resizer.classList.remove('dragging');
+  document.body.style.userSelect = '';
+  document.body.style.cursor = '';
+  localStorage.setItem('ms-editor-width', state.editorWidth);
+});
+
+// ─── Highlights — pen mode ─────────────────────────────────────
+// Click a color button in toolbar → activates pen mode.
+// While active, dragging over preview text immediately applies highlight.
+// Click active button again or press Escape to deactivate.
+
+let activePenColor = null; // null = pen off
+
+const penBtns = document.querySelectorAll('.hl-pen-btn');
+
+penBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const color = btn.dataset.color;
+    if (activePenColor === color) {
+      // toggle off
+      deactivatePen();
+    } else {
+      activatePen(color);
+    }
+  });
+});
+
+function activatePen(color) {
+  activePenColor = color;
+  penBtns.forEach(b => b.classList.toggle('active', b.dataset.color === color));
+  previewScroll.classList.add('pen-mode');
+}
+
+function deactivatePen() {
+  activePenColor = null;
+  penBtns.forEach(b => b.classList.remove('active'));
+  previewScroll.classList.remove('pen-mode');
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') deactivatePen();
+});
+
+// Listen for mouseup on the preview — if pen is active, apply highlight to selection
+previewScroll.addEventListener('mouseup', () => {
+  if (!activePenColor) return;
+
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
+
+  const range = sel.getRangeAt(0);
+  const text  = sel.toString().trim();
+  if (!text) return;
+
+  // Build a serialisable anchor so we can re-apply after re-render
+  const anchor = serializeRange(range);
+  if (!anchor) { sel.removeAllRanges(); return; }
+
+  const id = Date.now().toString(36) + Math.random().toString(36).substr(2, 4);
+  // Wrap in DOM immediately using the live range
+  wrapRangeWithMark(range, id, activePenColor);
+
+  state.highlights.push({ id, text, color: activePenColor, anchor });
+  saveHighlights();
+  renderAnnotList();
+  sel.removeAllRanges();
+  if (!state.annotOpen) toggleAnnot();
+});
+
+// ── Range serialisation ──────────────────────────────────────
+// We identify a text node by its index in the ordered flat list of all
+// non-code text nodes inside previewScroll. This survives re-renders
+// as long as the markdown content hasn't changed.
+
+function getTextNodes() {
+  const walker = document.createTreeWalker(
+    previewScroll,
+    NodeFilter.SHOW_TEXT,
+    {
+      acceptNode(node) {
+        const p = node.parentElement;
+        if (!p) return NodeFilter.FILTER_REJECT;
+        if (['SCRIPT','STYLE','CODE','PRE'].includes(p.tagName)) return NodeFilter.FILTER_REJECT;
+        // Skip whitespace-only nodes — inter-element \n nodes that create phantom highlights
+        if (!node.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    }
+  );
+  const nodes = [];
+  let n;
+  while ((n = walker.nextNode())) nodes.push(n);
+  return nodes;
+}
+
+function serializeRange(range) {
+  const nodes = getTextNodes();
+  const si = nodes.indexOf(range.startContainer);
+  const ei = nodes.indexOf(range.endContainer);
+  if (si === -1 || ei === -1) return null;
+  return {
+    si, so: range.startOffset,
+    ei, eo: range.endOffset
+  };
+}
+
+function deserializeRange(anchor) {
+  const nodes = getTextNodes();
+  if (anchor.si >= nodes.length || anchor.ei >= nodes.length) return null;
+  try {
+    const range = document.createRange();
+    range.setStart(nodes[anchor.si], Math.min(anchor.so, nodes[anchor.si].length));
+    range.setEnd(nodes[anchor.ei],   Math.min(anchor.eo, nodes[anchor.ei].length));
+    return range;
+  } catch(e) { return null; }
+}
+
+// ── DOM wrapping ─────────────────────────────────────────────
+// surroundContents() fails when the range crosses element boundaries.
+// Instead we extract all text nodes the range touches and wrap each
+// fragment individually. This handles cross-paragraph selections.
+
+function wrapRangeWithMark(range, id, color) {
+  // Collect every text node (or partial text node) within the range
+  const nodes = getTextNodes();
+  const fragments = []; // { node, start, end }
+
+  for (const node of nodes) {
+    // Does this text node overlap the range?
+    const nodeRange = document.createRange();
+    nodeRange.selectNode(node);
+    if (range.compareBoundaryPoints(Range.END_TO_START, nodeRange) >= 0) continue; // range ends before node
+    if (range.compareBoundaryPoints(Range.START_TO_END, nodeRange) <= 0) continue; // range starts after node
+
+    const start = (node === range.startContainer) ? range.startOffset : 0;
+    const end   = (node === range.endContainer)   ? range.endOffset   : node.length;
+    if (start >= end) continue;
+    // Skip if the selected slice is purely whitespace
+    if (!node.nodeValue.substring(start, end).trim()) continue;
+    fragments.push({ node, start, end });
+  }
+
+  for (const { node, start, end } of fragments) {
+    // split off the piece we want to wrap
+    const mid   = node.splitText(start);
+    const after = mid.splitText(end - start);   // 'after' stays unwrapped
+    void after; // keep reference to suppress lint warning
+
+    const mark = document.createElement('mark');
+    mark.className    = 'hl';
+    mark.dataset.color = color;
+    mark.dataset.id    = id;
+    mid.parentNode.insertBefore(mark, mid);
+    mark.appendChild(mid);
+
+    mark.addEventListener('click', e => {
+      e.stopPropagation();
+      scrollAnnotIntoView(id);
+    });
+  }
+}
+
+function addHighlight(id, color) {
+  // Called only during re-apply after re-render; DOM wrap happens separately
+}
+
+function removeHighlight(id) {
+  state.highlights = state.highlights.filter(h => h.id !== id);
+  saveHighlights();
+  // Remove marks from DOM
+  previewScroll.querySelectorAll(`mark.hl[data-id="${id}"]`).forEach(mark => {
+    const parent = mark.parentNode;
+    while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+    parent.removeChild(mark);
+    parent.normalize();
+  });
+  renderAnnotList();
+}
+
+function saveHighlights() {
+  localStorage.setItem('ms-highlights', JSON.stringify(state.highlights));
+}
+
+$('annot-clear').addEventListener('click', () => {
+  if (!confirm('Clear all highlights?')) return;
+  state.highlights = [];
+  saveHighlights();
+  applyHighlightsToDOM();
+  renderAnnotList();
+});
+
+// Re-apply all highlights after a re-render (marks get wiped when innerHTML is reset)
+function applyHighlightsToDOM() {
+  // Strip any stale marks first
+  previewScroll.querySelectorAll('mark.hl').forEach(mark => {
+    const parent = mark.parentNode;
+    while (mark.firstChild) parent.insertBefore(mark.firstChild, mark);
+    parent.removeChild(mark);
+    parent.normalize();
+  });
+
+  for (const hl of state.highlights) {
+    if (!hl.anchor) continue;
+    const range = deserializeRange(hl.anchor);
+    if (!range) continue;
+    wrapRangeWithMark(range, hl.id, hl.color);
+  }
+}
+
+function scrollAnnotIntoView(id) {
+  const item = annotList.querySelector(`[data-id="${id}"]`);
+  if (item) item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function renderAnnotList() {
+  annotList.innerHTML = '';
+  const colorBg = { yellow: '#ffd932', green: '#50b464', pink: '#e65082', blue: '#3c8cdc' };
+
+  state.highlights.forEach(hl => {
+    const item = document.createElement('div');
+    item.className = 'annot-item';
+    item.dataset.id = hl.id;
+    item.innerHTML = `
+      <div class="annot-text">${escapeHtml(hl.text.substring(0, 120))}${hl.text.length > 120 ? '…' : ''}</div>
+      <span class="annot-swatch" style="background:${colorBg[hl.color]}"></span>
+      <button class="annot-delete" title="Remove">×</button>
+    `;
+    item.querySelector('.annot-delete').addEventListener('click', e => {
+      e.stopPropagation();
+      removeHighlight(hl.id);
+    });
+    // Click to scroll to mark in preview
+    item.addEventListener('click', () => {
+      const mark = previewScroll.querySelector(`mark.hl[data-id="${hl.id}"]`);
+      if (mark) mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    annotList.appendChild(item);
+  });
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+            .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ─── Init ──────────────────────────────────────────────────────
+renderAnnotList();
+render(false);
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'o') { e.preventDefault(); fileInput.click(); }
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); $('btn-save').click(); }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'e') { e.preventDefault(); toggleEditor(); }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); toggleTOC(); }
+});
+</script>
+</body>
+</html>
