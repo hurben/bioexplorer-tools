@@ -67,3 +67,45 @@ bioexplorer-tools/
 │   │   └── linear_regression.cVSpos.proteomics.tsv
 └── └── venn_diagram_app.py                 # Main Streamlit app script
 ```
+
+---
+
+### 📝 3. `markdown_reditor/` – Markdown Reditor
+
+A single-file, browser-based Markdown editor and reader. No installation or server required — open `markdown_reditor.html` directly in any modern browser.
+
+**Features:**
+- Open `.md` files via file picker or drag-and-drop; save back to disk
+- Live split-pane view: raw Markdown editor (left) and rendered preview (right)
+- Draggable resizer between editor and preview panes
+- Collapsible Table of Contents sidebar auto-built from headings
+- **Highlighter pen tool** — click a color in the toolbar and drag over any text in the preview to highlight it (supports cross-paragraph selections); highlights are saved to `localStorage`
+- Annotations panel listing all highlights with click-to-scroll and per-item delete
+- Three themes: Light, Sepia, Dark — cycles with one button, persisted across sessions
+- Tab-key support and live cursor position (`Ln / Col`) display in the editor
+- No build step, no dependencies beyond [marked.js](https://marked.dev/) via CDN
+
+**Usage:**
+
+No server needed. Just open the file:
+
+```bash
+open markdown_reditor/markdown_reditor.html   # macOS
+# or double-click the file in Finder
+```
+
+**Keyboard shortcuts:**
+
+| Shortcut | Action |
+|---|---|
+| `⌘ O` | Open file |
+| `⌘ S` | Save / download file |
+| `⌘ E` | Toggle editor pane |
+| `⌘ K` | Toggle Table of Contents |
+| `Esc` | Deactivate highlighter pen |
+
+```bash
+bioexplorer-tools/
+├── markdown_reditor/
+│   └── markdown_reditor.html             # Self-contained single-file app (HTML + CSS + JS)
+```
